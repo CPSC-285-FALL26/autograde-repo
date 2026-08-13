@@ -48,6 +48,7 @@ def main():
     ap.add_argument("--assignment", required=True, help="assignment folder, e.g. hw1")
     ap.add_argument("--submission", required=True, help="path to the student's checked-out repo")
     ap.add_argument("--tests", required=True, help="path to the grader tests directory")
+    ap.add_argument("--student", default="", help="student username (shown in the summary)")
     a = ap.parse_args()
 
     tests_dir = Path(a.tests) / a.assignment
@@ -107,7 +108,8 @@ def main():
 
     score = round(total, 1)
     max_score = round(max_total, 1)
-    print(f"\nScore: {score} / {max_score}")
+    who = f"{a.student} · " if a.student else ""
+    print(f"\n{who}Score: {score} / {max_score}")
     for name, status, pts, wt in rows:
         print(f"  {name:8} {status:8} {round(pts,1)}/{round(wt,1)}")
 
@@ -115,7 +117,10 @@ def main():
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
         with open(summary, "a") as f:
-            f.write(f"## Autograder — {a.assignment}\n\n")
+            title = f"{a.student} · {a.assignment}" if a.student else a.assignment
+            f.write(f"## Autograder — {title}\n\n")
+            if a.student:
+                f.write(f"**Student:** `{a.student}`  \n")
             f.write(f"**Score: {score} / {max_score}**\n\n")
             f.write("| Check | Result | Points |\n|---|---|---|\n")
             for name, status, pts, wt in rows:
@@ -123,6 +128,7 @@ def main():
 
     # 4) Machine-readable result (uploaded as an artifact; feed into a gradebook).
     Path("grade-result.json").write_text(json.dumps({
+        "student": a.student,
         "assignment": a.assignment,
         "score": score,
         "max": max_score,
