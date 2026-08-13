@@ -38,17 +38,17 @@ jobs:
       PGDATABASE: gradingdb
     steps:
       - name: Check out student repo (caller)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: submission
 
       - name: Check out public grader script
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: CPSC-285-FALL26/cpsc285-autograde    # <-- this public repo
           path: runner
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
