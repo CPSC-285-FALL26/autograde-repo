@@ -1,0 +1,19 @@
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Generated at runtime by the reusable workflow (reshaped on the runner — never commit)
+grade-result.json
+submission/
+tests/
+*.sqlite
+*.db
+
+# Secrets / local env (this repo is PUBLIC — keep these out)
+.env
+*.pem

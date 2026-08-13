@@ -1,0 +1,81 @@
+name: Sample feedback (advisory)
+
+# Reusable workflow that student repos call on push. It grades ONLY the public
+# sample tests that live in the student's own repo (hwN/schema.sql +
+# hwN/sample/expected_*.csv), so there is no secret to protect and tampering is
+# harmless. It publishes the result as an advisory Release on the student repo.
+# THIS IS NOT THE OFFICIAL GRADE — that is computed by the private grader repo.
+
+on:
+  workflow_call:
+    inputs:
+      assignment:
+        type: string
+        required: true
+
+permissions:
+  contents: write        # to publish the advisory Release on the caller repo
+
+jobs:
+  feedback:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: grader
+          POSTGRES_PASSWORD: grader
+          POSTGRES_DB: gradingdb
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U grader"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: grader
+      PGPASSWORD: grader
+      PGDATABASE: gradingdb
+    steps:
+      - name: Check out student repo (caller)
+        uses: actions/checkout@v4
+        with:
+          path: submission
+
+      - name: Check out public grader script
+        uses: actions/checkout@v4
+        with:
+          repository: your-org-name/cpsc285-autograde    # <-- this public repo
+          path: runner
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install psql client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Reshape public sample into grader layout
+        run: |
+          HW="${{ inputs.assignment }}"
+          mkdir -p "tests/$HW/expected"
+          cp "submission/$HW/schema.sql" "tests/$HW/setup.sql"
+          for f in submission/$HW/sample/expected_*.csv; do
+            base="$(basename "$f" .csv)"; q="${base#expected_}"
+            cp "$f" "tests/$HW/expected/$q.csv"
+          done
+
+      - name: Run sample autograder
+        run: python3 runner/grade.py --assignment "${{ inputs.assignment }}" --submission submission --tests tests
+
+      - name: Publish advisory Release
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          score=$(python3 -c "import json;d=json.load(open('grade-result.json'));print(f\"{d['score']} / {d['max']}\")" 2>/dev/null || echo "n/a")
+          tag="sample-${{ inputs.assignment }}-$(date -u +%Y%m%d%H%M%S)"
+          gh release create "$tag" grade-result.json \
+            --repo "${{ github.repository }}" \
+            --title "Sample feedback: ${{ inputs.assignment }} — $score" \
+            --notes "Advisory sample-test result only — NOT your official grade. Score: $score. Your graded score is posted in Canvas."
