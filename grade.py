@@ -74,18 +74,21 @@ def main():
         cfg = json.loads(cfg_file.read_text())
     points = cfg.get("points", {})
     ordered_checks = set(cfg.get("ordered", []))
+    # Points for a check not listed in "points": use points.json "default", else 1.
+    # The assignment total (max) is simply the SUM of every check's points — it is
+    # NOT scaled to 100. So the max = sum of the per-question points you configure.
+    default_points = float(cfg.get("default", 1))
 
     checks = sorted(expected_dir.glob("*.csv"))
     if not checks:
         print("::error::No expected/*.csv checks found for this assignment")
         sys.exit(1)
 
-    default_weight = 100.0 / len(checks)
     total, max_total, rows = 0.0, 0.0, []
 
     for exp in checks:
         name = exp.stem                      # e.g. "q1"
-        weight = float(points.get(name, default_weight))
+        weight = float(points.get(name, default_points))
         max_total += weight
         student_sql = sub_dir / f"{name}.sql"
 
