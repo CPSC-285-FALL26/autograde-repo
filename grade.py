@@ -49,6 +49,8 @@ def main():
     ap.add_argument("--submission", required=True, help="path to the student's checked-out repo")
     ap.add_argument("--tests", required=True, help="path to the grader tests directory")
     ap.add_argument("--student", default="", help="student username (shown in the summary)")
+    ap.add_argument("--no-points", action="store_true",
+                    help="show pass/fail counts instead of points (for advisory sample feedback)")
     a = ap.parse_args()
 
     tests_dir = Path(a.tests) / a.assignment
@@ -111,23 +113,39 @@ def main():
 
     score = round(total, 1)
     max_score = round(max_total, 1)
-    who = f"{a.student} · " if a.student else ""
-    print(f"\n{who}Score: {score} / {max_score}")
-    for name, status, pts, wt in rows:
-        print(f"  {name:8} {status:8} {round(pts,1)}/{round(wt,1)}")
+    passed = sum(1 for _n, s, _p, _w in rows if s == "PASS")
+    ntotal = len(rows)
+
+    # Console output.
+    if a.no_points:
+        print(f"\nPassed: {passed} / {ntotal} checks")
+        for name, status, pts, wt in rows:
+            print(f"  {name:8} {status}")
+    else:
+        who = f"{a.student} · " if a.student else ""
+        print(f"\n{who}Score: {score} / {max_score}")
+        for name, status, pts, wt in rows:
+            print(f"  {name:8} {status:8} {round(pts,1)}/{round(wt,1)}")
 
     # 3) Write a Markdown summary for the Actions run page.
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
         with open(summary, "a") as f:
-            title = f"{a.student} · {a.assignment}" if a.student else a.assignment
-            f.write(f"## Autograder — {title}\n\n")
-            if a.student:
-                f.write(f"**Student:** `{a.student}`  \n")
-            f.write(f"**Score: {score} / {max_score}**\n\n")
-            f.write("| Check | Result | Points |\n|---|---|---|\n")
-            for name, status, pts, wt in rows:
-                f.write(f"| `{name}` | {status} | {round(pts,1)} / {round(wt,1)} |\n")
+            if a.no_points:
+                f.write(f"## Sample feedback — {a.assignment}\n\n")
+                f.write(f"**{passed} / {ntotal} questions passed**  (advisory — not your official grade)\n\n")
+                f.write("| Question | Result |\n|---|---|\n")
+                for name, status, pts, wt in rows:
+                    f.write(f"| `{name}` | {status} |\n")
+            else:
+                title = f"{a.student} · {a.assignment}" if a.student else a.assignment
+                f.write(f"## Autograding Result: {title}\n\n")
+                if a.student:
+                    f.write(f"**Student:** `{a.student}`  \n")
+                f.write(f"**Score: {score} / {max_score}**\n\n")
+                f.write("| Check | Result | Points |\n|---|---|---|\n")
+                for name, status, pts, wt in rows:
+                    f.write(f"| `{name}` | {status} | {round(pts,1)} / {round(wt,1)} |\n")
 
     # 4) Machine-readable result (uploaded as an artifact; feed into a gradebook).
     Path("grade-result.json").write_text(json.dumps({

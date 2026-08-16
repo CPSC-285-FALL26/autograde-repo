@@ -66,16 +66,20 @@ jobs:
           done
 
       - name: Run sample autograder
-        run: python3 runner/grade.py --assignment "${{ inputs.assignment }}" --submission submission --tests tests
+        run: python3 runner/grade.py --assignment "${{ inputs.assignment }}" --submission submission --tests tests --no-points
 
-      - name: Publish advisory Release
+      - name: Publish advisory feedback (questions passed)
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          score=$(python3 -c "import json;d=json.load(open('grade-result.json'));print(f\"{d['score']} / {d['max']}\")" 2>/dev/null || echo "n/a")
+          read passed total <<< "$(python3 -c "import json;c=json.load(open('grade-result.json'))['checks'];print(sum(1 for x in c if x['status']=='PASS'), len(c))" 2>/dev/null || echo '0 0')"
+          result="${passed}/${total} questions passed"
+          details=$(python3 -c "import json;print('\n'.join('- %s: %s' % (x['name'], x['status']) for x in json.load(open('grade-result.json'))['checks']))" 2>/dev/null || echo "")
+          notes=$(printf 'Advisory sample-test result only — NOT your official grade. %s.\n\n%s\n\nYour graded score is posted in Canvas.' "$result" "$details")
           tag="sample-${{ inputs.assignment }}-$(date -u +%Y%m%d%H%M%S)"
-          gh release create "$tag" grade-result.json \
+          # NOTE: grade-result.json is intentionally NOT attached (it contains points).
+          gh release create "$tag" \
             --repo "${{ github.repository }}" \
-            --title "Sample feedback: ${{ inputs.assignment }} — $score" \
-            --notes "Advisory sample-test result only — NOT your official grade. Score: $score. Your graded score is posted in Canvas."
+            --title "Sample feedback: ${{ inputs.assignment }} — ${result}" \
+            --notes "$notes"
