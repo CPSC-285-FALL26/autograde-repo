@@ -132,8 +132,8 @@ def main():
     if summary:
         with open(summary, "a") as f:
             if a.no_points:
-                f.write(f"## Sample feedback — {a.assignment}\n\n")
-                f.write(f"**{passed} / {ntotal} questions passed**  (advisory — not your official grade)\n\n")
+                f.write(f"## Sample / Advisory Feedback: {a.assignment}\n\n")
+                f.write(f"**{passed} / {ntotal} questions passed**  (advisory result - not your official grade)\n\n")
                 f.write("| Question | Result |\n|---|---|\n")
                 for name, status, pts, wt in rows:
                     f.write(f"| `{name}` | {status} |\n")
